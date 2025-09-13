@@ -1,16 +1,29 @@
-// Statistics page for T&P Cell Ambassador Tool
-import type { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Statistics - T&P Cell Ambassador',
-  description: 'View detailed statistics and analytics for the T&P Cell Ambassador program',
-};
+// Statistics page for T&P Cell Ambassador Tool
+import Navigation from '../../components/ui/Navigation';
+import { useUserStats } from '../../hooks/useApi';
 
 export default function StatsPage() {
+  const { stats: userStats, loading, error } = useUserStats();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="text-center py-12">
+            <p className="text-gray-500">Loading statistics...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto p-6">
-        {/* Header */}
+      <Navigation />
+      <div className="max-w-7xl mx-auto p-6">{/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Statistics & Analytics</h1>
           <p className="text-gray-600">Comprehensive overview of T&P Cell Ambassador program performance</p>
@@ -22,7 +35,7 @@ export default function StatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Contacts</p>
-                <p className="text-3xl font-bold text-blue-600">1,247</p>
+                <p className="text-3xl font-bold text-blue-600">{userStats?.totalContacts || 0}</p>
               </div>
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
                 <span className="text-blue-600 text-xl">📋</span>
@@ -38,7 +51,7 @@ export default function StatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Approved Contacts</p>
-                <p className="text-3xl font-bold text-green-600">892</p>
+                <p className="text-3xl font-bold text-green-600">{userStats?.totalContacts || 0}</p>
               </div>
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
                 <span className="text-green-600 text-xl">✅</span>
@@ -70,7 +83,7 @@ export default function StatsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Credits Earned</p>
-                <p className="text-3xl font-bold text-orange-600">24,680</p>
+                <p className="text-3xl font-bold text-orange-600">{userStats?.credits || 0}</p>
               </div>
               <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
                 <span className="text-orange-600 text-xl">🏆</span>

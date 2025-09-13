@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '../lib/auth';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import Navigation from '../components/ui/Navigation';
+import { useUserStats, useHRSearch } from '../hooks/useApi';
 
 interface HRContact {
   id: string;
@@ -30,10 +32,12 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'hr' | 'company'>('hr');
   const [results, setResults] = useState<HRContact[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const router = useRouter();
+
+  // Use API hooks
+  const { stats: userStats, loading: statsLoading, refetch: refetchStats } = useUserStats();
+  const { searchContacts, loading: searchLoading } = useHRSearch();
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -42,64 +46,22 @@ export default function Home() {
     }
   }, [user, loading, router]);
 
-  // Fetch user stats on component mount
-  useEffect(() => {
-    if (user) {
-      fetchUserStats();
-    }
-  }, [user]);
-
-  const fetchUserStats = async () => {
-    if (!user) return;
-
-    try {
-      const token = await user.getIdToken();
-      const response = await fetch('http://localhost:3001/api/users/stats', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const stats = await response.json();
-        setUserStats(stats);
-      }
-    } catch (error) {
-      console.error('Error fetching user stats:', error);
-    }
-  };
-
   const handleSearch = async () => {
     if (!searchQuery.trim() || !user) return;
 
-    setSearching(true);
     try {
-      const token = await user.getIdToken();
-      const response = await fetch('http://localhost:3001/api/hr/search', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          query: searchQuery,
-          type: searchType
-        })
+      const result = await searchContacts(searchQuery, {
+        searchType: searchType
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setResults(data.results || []);
+      
+      if (result?.results) {
+        setResults(result.results);
       } else {
-        console.error('Search failed:', response.statusText);
         setResults([]);
       }
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
-    } finally {
-      setSearching(false);
     }
   };
 
@@ -129,7 +91,7 @@ export default function Home() {
       if (response.ok) {
         alert('Contact submitted successfully for admin review!');
         // Refresh user stats
-        fetchUserStats();
+        refetchStats();
         // Remove from search results
         setResults(prev => prev.filter(c => c.id !== contact.id));
       } else {
@@ -170,6 +132,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Navigation />
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -228,7 +191,7 @@ export default function Home() {
               Search for HR Contacts
             </h3>
 
-            <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex flex-col md:flex-row gap-4 text-gray-700">
               <div className="flex-1">
                 <input
                   type="text"
@@ -252,10 +215,10 @@ export default function Home() {
 
                 <button
                   onClick={handleSearch}
-                  disabled={searching || !searchQuery.trim()}
+                  disabled={searchLoading || !searchQuery.trim()}
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {searching ? 'Searching...' : 'Search'}
+                  {searchLoading ? 'Searching...' : 'Search'}
                 </button>
               </div>
             </div>
@@ -328,7 +291,7 @@ export default function Home() {
 
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-medium text-gray-900">Pending Review</h3>
-                <p className="text-3xl font-bold text-yellow-600 mt-2">{userStats.pendingReview}</p>
+                <p className="text-3xl font-bold text-yellow-600 mt-2">{userStats.pendingContacts}</p>
                 <p className="text-sm text-gray-500 mt-1">Contacts waiting for approval</p>
               </div>
 
@@ -340,7 +303,7 @@ export default function Home() {
 
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-medium text-gray-900">Total Submissions</h3>
-                <p className="text-3xl font-bold text-purple-600 mt-2">{userStats.totalSubmissions}</p>
+                <p className="text-3xl font-bold text-purple-600 mt-2">{userStats.totalContacts}</p>
                 <p className="text-sm text-gray-500 mt-1">All time submissions</p>
               </div>
             </div>

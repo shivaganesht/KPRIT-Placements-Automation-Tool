@@ -1,3 +1,11 @@
+// Load environment variables - try local .env first, then parent directory
+require('dotenv').config({ path: '.env' });
+require('dotenv').config({ path: '../.env.local' });
+
+console.log('🔑 Environment variables loaded:');
+console.log('- Apollo API Key:', process.env.APOLLO_API_KEY ? `${process.env.APOLLO_API_KEY.substring(0, 4)}...` : 'NOT FOUND');
+console.log('- Gemini API Key:', process.env.GEMINI_API_KEY ? `${process.env.GEMINI_API_KEY.substring(0, 4)}...` : 'NOT FOUND');
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -5,10 +13,14 @@ const rateLimit = require('express-rate-limit');
 const admin = require('firebase-admin');
 const fs = require('fs').promises;
 const path = require('path');
+const ContactSearchService = require('./services/ContactSearchService');
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Initialize services
+const contactSearchService = new ContactSearchService();
 
 // Initialize Firebase Admin (with fallback for development)
 let firebaseApp;
@@ -124,11 +136,24 @@ async function authenticateUser(req, res, next) {
     } else {
       // Mock authentication for development
       console.log('🔓 Mock authentication mode');
+      const mockUid = 'mock_user_123'; // Use consistent ID for development
       req.user = {
-        uid: 'mock_user_' + Date.now(),
+        uid: mockUid,
         email: 'mock@kpritech.ac.in',
         name: 'Mock User'
       };
+      
+      // Ensure mock user has credits for testing
+      try {
+        const credits = await readJsonFile(CREDITS_DB) || {};
+        if (!credits[mockUid] || credits[mockUid] < 10) {
+          credits[mockUid] = 50; // Give plenty of credits for testing
+          await writeJsonFile(CREDITS_DB, credits);
+          console.log('💰 Mock user credits initialized to 50');
+        }
+      } catch (error) {
+        console.error('Error setting mock user credits:', error);
+      }
     }
 
     next();
@@ -142,14 +167,13 @@ async function authenticateUser(req, res, next) {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
-    firebase: !!firebaseApp 
+    firebase: !!firebaseApp,
+    apolloApiKey: process.env.APOLLO_API_KEY ? `${process.env.APOLLO_API_KEY.substring(0, 4)}...` : 'NOT FOUND'
   });
-});
-
-// User registration/login
+});// User registration/login
 app.post('/api/auth/register', authenticateUser, async (req, res) => {
   try {
     const { uid, email, name } = req.user;
@@ -216,7 +240,7 @@ app.get('/api/user/stats', authenticateUser, async (req, res) => {
 // HR Search endpoint
 app.post('/api/hr/search', authenticateUser, async (req, res) => {
   try {
-    const { company, filters } = req.body;
+    const { company, filters = {} } = req.body;
     const { uid } = req.user;
     
     if (!company) {
@@ -231,57 +255,90 @@ app.post('/api/hr/search', authenticateUser, async (req, res) => {
       return res.status(402).json({ error: 'Insufficient credits for HR search' });
     }
 
-    // Mock HR search results (in production, this would be real data)
-    const mockResults = [
-      {
-        id: 1,
-        name: 'Sarah Johnson',
-        position: 'HR Director',
-        company: company,
-        email: `sarah.johnson@${company.toLowerCase().replace(/\s+/g, '')}.com`,
-        linkedin: `https://linkedin.com/in/sarah-johnson-${company.toLowerCase()}`,
-        location: 'Mumbai, Maharashtra',
-        experience: '8+ years in HR',
-        verified: true
-      },
-      {
-        id: 2,
-        name: 'Rajesh Kumar',
-        position: 'Talent Acquisition Manager',
-        company: company,
-        email: `rajesh.kumar@${company.toLowerCase().replace(/\s+/g, '')}.com`,
-        linkedin: `https://linkedin.com/in/rajesh-kumar-${company.toLowerCase()}`,
-        location: 'Bangalore, Karnataka',
-        experience: '5+ years in recruitment',
-        verified: true
-      },
-      {
-        id: 3,
-        name: 'Priya Sharma',
-        position: 'HR Business Partner',
-        company: company,
-        email: `priya.sharma@${company.toLowerCase().replace(/\s+/g, '')}.com`,
-        linkedin: `https://linkedin.com/in/priya-sharma-${company.toLowerCase()}`,
-        location: 'Delhi, India',
-        experience: '6+ years in HR operations',
-        verified: false
-      }
-    ];
+    // Use the new ContactSearchService
+    const searchResults = await contactSearchService.searchContacts(company, filters);
 
-    // Deduct credit
-    credits[uid] = userCredits - 1;
-    await writeJsonFile(CREDITS_DB, credits);
+    // Deduct credit only if we found results
+    if (searchResults.length > 0) {
+      credits[uid] = userCredits - 1;
+      await writeJsonFile(CREDITS_DB, credits);
+    }
 
     res.json({
       success: true,
-      results: mockResults,
+      results: searchResults,
       creditsRemaining: credits[uid],
-      searchQuery: { company, filters }
+      searchQuery: { company, filters },
+      resultCount: searchResults.length
     });
 
   } catch (error) {
     console.error('HR search error:', error);
     res.status(500).json({ error: 'HR search failed' });
+  }
+});
+
+// Advanced HR Search endpoint
+app.post('/api/hr/advanced-search', authenticateUser, async (req, res) => {
+  try {
+    const searchParams = req.body;
+    const { uid } = req.user;
+    
+    if (!searchParams.company) {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+
+    // Check user credits (advanced search costs 2 credits)
+    const credits = await readJsonFile(CREDITS_DB) || {};
+    const userCredits = credits[uid] || 0;
+    
+    if (userCredits < 2) {
+      return res.status(402).json({ error: 'Insufficient credits for advanced search (requires 2 credits)' });
+    }
+
+    // Use advanced search
+    const searchResults = await contactSearchService.advancedSearch(searchParams);
+
+    // Deduct credits only if we found results
+    if (searchResults.length > 0) {
+      credits[uid] = userCredits - 2;
+      await writeJsonFile(CREDITS_DB, credits);
+    }
+
+    res.json({
+      success: true,
+      results: searchResults,
+      creditsRemaining: credits[uid],
+      searchQuery: searchParams,
+      resultCount: searchResults.length
+    });
+
+  } catch (error) {
+    console.error('Advanced search error:', error);
+    res.status(500).json({ error: 'Advanced search failed' });
+  }
+});
+
+// Get contact details endpoint
+app.get('/api/contacts/:id/details', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { source = 'apollo' } = req.query;
+
+    const contactDetails = await contactSearchService.getContactDetails(id, source);
+
+    if (!contactDetails) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
+    res.json({
+      success: true,
+      contact: contactDetails
+    });
+
+  } catch (error) {
+    console.error('Get contact details error:', error);
+    res.status(500).json({ error: 'Failed to get contact details' });
   }
 });
 
@@ -314,10 +371,20 @@ app.post('/api/contacts/submit', authenticateUser, async (req, res) => {
 
     // Update user stats
     const users = await readJsonFile(USERS_DB) || {};
-    if (users[uid]) {
-      users[uid].totalContacts = (users[uid].totalContacts || 0) + 1;
-      await writeJsonFile(USERS_DB, users);
+    if (!users[uid]) {
+      // Create user if doesn't exist
+      users[uid] = {
+        uid,
+        email,
+        name,
+        totalContacts: 0,
+        approvedContacts: 0,
+        totalCreditsEarned: 0,
+        registeredAt: new Date().toISOString()
+      };
     }
+    users[uid].totalContacts = (users[uid].totalContacts || 0) + 1;
+    await writeJsonFile(USERS_DB, users);
 
     res.json({
       success: true,
@@ -347,6 +414,110 @@ app.get('/api/contacts/user', authenticateUser, async (req, res) => {
   } catch (error) {
     console.error('Get user contacts error:', error);
     res.status(500).json({ error: 'Failed to get user contacts' });
+  }
+});
+
+// Admin endpoints for contact approval
+app.get('/api/admin/contacts/pending', authenticateUser, async (req, res) => {
+  try {
+    const contacts = await readJsonFile(CONTACTS_DB) || [];
+    const pendingContacts = contacts.filter(contact => contact.status === 'pending');
+    
+    res.json({
+      success: true,
+      contacts: pendingContacts.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))
+    });
+
+  } catch (error) {
+    console.error('Get pending contacts error:', error);
+    res.status(500).json({ error: 'Failed to get pending contacts' });
+  }
+});
+
+app.post('/api/admin/contacts/:id/approve', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminNotes } = req.body;
+    
+    const contacts = await readJsonFile(CONTACTS_DB) || [];
+    const contactIndex = contacts.findIndex(contact => contact.id == id);
+    
+    if (contactIndex === -1) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+    
+    const contact = contacts[contactIndex];
+    
+    // Update contact status
+    contacts[contactIndex] = {
+      ...contact,
+      status: 'approved',
+      adminNotes: adminNotes || '',
+      approvedAt: new Date().toISOString(),
+      approvedBy: req.user.email
+    };
+    
+    await writeJsonFile(CONTACTS_DB, contacts);
+    
+    // Reward ambassador with credits (5 credits per approved contact)
+    const credits = await readJsonFile(CREDITS_DB) || {};
+    credits[contact.userId] = (credits[contact.userId] || 0) + 5;
+    await writeJsonFile(CREDITS_DB, credits);
+    
+    // Update user stats
+    const users = await readJsonFile(USERS_DB) || {};
+    if (users[contact.userId]) {
+      users[contact.userId].approvedContacts = (users[contact.userId].approvedContacts || 0) + 1;
+      users[contact.userId].totalCreditsEarned = (users[contact.userId].totalCreditsEarned || 0) + 5;
+      await writeJsonFile(USERS_DB, users);
+    }
+
+    res.json({
+      success: true,
+      message: 'Contact approved and ambassador rewarded with 5 credits',
+      contact: contacts[contactIndex]
+    });
+
+  } catch (error) {
+    console.error('Approve contact error:', error);
+    res.status(500).json({ error: 'Failed to approve contact' });
+  }
+});
+
+app.post('/api/admin/contacts/:id/reject', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminNotes } = req.body;
+    
+    const contacts = await readJsonFile(CONTACTS_DB) || [];
+    const contactIndex = contacts.findIndex(contact => contact.id == id);
+    
+    if (contactIndex === -1) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+    
+    const contact = contacts[contactIndex];
+    
+    // Update contact status
+    contacts[contactIndex] = {
+      ...contact,
+      status: 'rejected',
+      adminNotes: adminNotes || '',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: req.user.email
+    };
+    
+    await writeJsonFile(CONTACTS_DB, contacts);
+
+    res.json({
+      success: true,
+      message: 'Contact rejected',
+      contact: contacts[contactIndex]
+    });
+
+  } catch (error) {
+    console.error('Reject contact error:', error);
+    res.status(500).json({ error: 'Failed to reject contact' });
   }
 });
 
@@ -570,7 +741,9 @@ app.use('*', (req, res) => {
 // Initialize database and start server
 async function startServer() {
   try {
+    console.log('🔄 Initializing server...');
     await ensureDataDirectory();
+    console.log('✅ Data directory initialized');
     
     app.listen(PORT, () => {
       console.log(`🚀 T&P Ambassador Tool API running on port ${PORT}`);
@@ -580,8 +753,10 @@ async function startServer() {
     });
   } catch (error) {
     console.error('Failed to start server:', error);
+    console.error('Stack trace:', error.stack);
     process.exit(1);
   }
 }
 
+console.log('📝 Starting server initialization...');
 startServer();

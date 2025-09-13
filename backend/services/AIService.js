@@ -1,23 +1,74 @@
 // AI Integration service for generating email templates and call scripts
-const express = require('express');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 class AIService {
   constructor() {
     this.geminiApiKey = process.env.GEMINI_API_KEY;
-    this.openaiApiKey = process.env.OPENAI_API_KEY;
+    this.genAI = new GoogleGenerativeAI(this.geminiApiKey);
+    this.model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
   }
 
   // Generate cold email template
   async generateColdEmail(contactData, companyInfo = {}) {
     try {
-      // Placeholder for actual AI API call
+      if (!this.geminiApiKey) {
+        throw new Error('Gemini API key not configured');
+      }
+
+      const prompt = `Generate a professional cold email for a student ambassador from KPRIT College to reach out to an HR professional for campus recruitment opportunities.
+
+Contact Details:
+- Name: ${contactData.name || 'HR Professional'}
+- Position: ${contactData.position || 'HR Manager'}
+- Company: ${contactData.company || 'Company'}
+- Email: ${contactData.email || ''}
+
+Requirements:
+1. Professional and respectful tone
+2. Mention KPRIT College's strengths
+3. Include placement statistics
+4. Request for partnership/recruitment opportunity
+5. Keep it concise (under 300 words)
+6. Include placeholders for ambassador details like [AMBASSADOR_NAME], [AMBASSADOR_EMAIL], [AMBASSADOR_PHONE]
+
+Generate the email with a compelling subject line.`;
+
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const generatedText = response.text();
+
+      // Parse the response to extract subject and body
+      const lines = generatedText.split('\n');
+      let subject = 'Partnership Opportunity - KPRIT College Placements';
+      let body = generatedText;
+
+      // Try to extract subject if it's marked
+      const subjectMatch = generatedText.match(/Subject:\s*(.+)/i);
+      if (subjectMatch) {
+        subject = subjectMatch[1].trim();
+        body = generatedText.replace(/Subject:\s*.+\n?/i, '').trim();
+      }
+
+      return {
+        subject,
+        body,
+        variables: [
+          'AMBASSADOR_NAME',
+          'AMBASSADOR_EMAIL', 
+          'AMBASSADOR_PHONE',
+          'COLLEGE_WEBSITE'
+        ]
+      };
+    } catch (error) {
+      console.error('Error generating cold email:', error);
+      // Fallback to template
       const template = {
         subject: `Partnership Opportunity - KPRIT College Placements`,
-        body: `Dear ${contactData.name},
+        body: `Dear ${contactData.name || 'HR Professional'},
 
 I hope this email finds you well. My name is [AMBASSADOR_NAME], and I am a student ambassador at KPRIT College, representing our Training & Placement Cell.
 
-I came across your profile as ${contactData.position} at ${contactData.company}, and I believe there could be a valuable partnership opportunity between ${contactData.company} and our institution.
+I came across your profile as ${contactData.position || 'HR Professional'} at ${contactData.company || 'your company'}, and I believe there could be a valuable partnership opportunity between ${contactData.company || 'your company'} and our institution.
 
 KPRIT College is home to bright, motivated students in various engineering and technology disciplines. Our graduates have consistently demonstrated excellence in:
 • Technical skills and innovation
@@ -25,7 +76,7 @@ KPRIT College is home to bright, motivated students in various engineering and t
 • Strong work ethic and dedication
 • Adaptability to industry requirements
 
-We would love to explore how ${contactData.company} could benefit from recruiting our talented students. Our placement cell can facilitate:
+We would love to explore how ${contactData.company || 'your company'} could benefit from recruiting our talented students. Our placement cell can facilitate:
 • Campus recruitment drives
 • Internship programs
 • Project collaborations
@@ -52,20 +103,68 @@ P.S. You can learn more about our college and placement achievements at [COLLEGE
       };
 
       return template;
-    } catch (error) {
-      console.error('Error generating cold email:', error);
-      throw new Error('Failed to generate email template');
     }
   }
 
   // Generate follow-up email template
   async generateFollowUpEmail(contactData, previousContext = '') {
     try {
+      if (!this.geminiApiKey) {
+        throw new Error('Gemini API key not configured');
+      }
+
+      const prompt = `Generate a professional follow-up email for a student ambassador from KPRIT College who previously contacted an HR professional about campus recruitment.
+
+Contact Details:
+- Name: ${contactData.name || 'HR Professional'}
+- Position: ${contactData.position || 'HR Manager'}
+- Company: ${contactData.company || 'Company'}
+- Previous Context: ${previousContext || 'Initial outreach for campus recruitment'}
+
+Requirements:
+1. Polite and professional follow-up tone
+2. Reference the previous communication
+3. Add value with specific placement statistics
+4. Provide specific time slots for scheduling
+5. Keep it concise and action-oriented
+6. Include placeholders like [AMBASSADOR_NAME], [TIME_SLOT_1], etc.
+
+Generate the email with an appropriate subject line.`;
+
+      const result = await this.model.generateContent(prompt);
+      const response = await result.response;
+      const generatedText = response.text();
+
+      // Parse the response to extract subject and body
+      let subject = 'Re: Partnership Opportunity - KPRIT College Placements';
+      let body = generatedText;
+
+      const subjectMatch = generatedText.match(/Subject:\s*(.+)/i);
+      if (subjectMatch) {
+        subject = subjectMatch[1].trim();
+        body = generatedText.replace(/Subject:\s*.+\n?/i, '').trim();
+      }
+
+      return {
+        subject,
+        body,
+        variables: [
+          'AMBASSADOR_NAME',
+          'AMBASSADOR_EMAIL',
+          'AMBASSADOR_PHONE',
+          'TIME_SLOT_1',
+          'TIME_SLOT_2',
+          'TIME_SLOT_3'
+        ]
+      };
+    } catch (error) {
+      console.error('Error generating follow-up email:', error);
+      // Fallback template
       const template = {
         subject: `Re: Partnership Opportunity - KPRIT College Placements`,
-        body: `Dear ${contactData.name},
+        body: `Dear ${contactData.name || 'HR Professional'},
 
-I hope you're doing well. I wanted to follow up on my previous email regarding a potential partnership between ${contactData.company} and KPRIT College.
+I hope you're doing well. I wanted to follow up on my previous email regarding a potential partnership between ${contactData.company || 'your company'} and KPRIT College.
 
 I understand you must be quite busy, but I believe this opportunity could be mutually beneficial. To give you a better sense of what we can offer:
 
@@ -75,9 +174,9 @@ Recent Placement Highlights:
 • Top package: ₹45 LPA
 • 200+ companies recruited from our campus
 
-Our students are skilled in cutting-edge technologies and are ready to contribute from day one. ${contactData.company}'s reputation for innovation makes it an ideal partner for our tech-savvy graduates.
+Our students are skilled in cutting-edge technologies and are ready to contribute from day one. ${contactData.company || 'Your company'}'s reputation for innovation makes it an ideal partner for our tech-savvy graduates.
 
-I'd be grateful for just 10 minutes of your time to discuss how we can support ${contactData.company}'s talent acquisition goals.
+I'd be grateful for just 10 minutes of your time to discuss how we can support ${contactData.company || 'your company'}'s talent acquisition goals.
 
 Would any of these times work for a quick call?
 • [TIME_SLOT_1]
@@ -103,9 +202,6 @@ KPRIT College - Student Ambassador
       };
 
       return template;
-    } catch (error) {
-      console.error('Error generating follow-up email:', error);
-      throw new Error('Failed to generate follow-up email template');
     }
   }
 

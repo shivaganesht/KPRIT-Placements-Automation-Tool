@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import Navigation, { QuickNav } from '../../components/ui/Navigation';
+import { useLeaderboard } from '../../hooks/useApi';
 
 interface LeaderboardEntry {
   rank: number;
@@ -11,40 +13,7 @@ interface LeaderboardEntry {
 }
 
 export default function Leaderboard() {
-  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchLeaderboard();
-  }, []);
-
-  const fetchLeaderboard = async () => {
-    try {
-      setLoading(true);
-      // Placeholder for API call
-      console.log('Fetching leaderboard...');
-      
-      // Simulate API response
-      setTimeout(() => {
-        setLeaderboard([
-          { rank: 1, userId: '1', name: 'Alice Johnson', credits: 45, approvedContacts: 45 },
-          { rank: 2, userId: '2', name: 'Bob Smith', credits: 38, approvedContacts: 38 },
-          { rank: 3, userId: '3', name: 'Carol Davis', credits: 32, approvedContacts: 32 },
-          { rank: 4, userId: '4', name: 'David Wilson', credits: 28, approvedContacts: 28 },
-          { rank: 5, userId: '5', name: 'Eva Brown', credits: 24, approvedContacts: 24 },
-          { rank: 6, userId: '6', name: 'Frank Miller', credits: 20, approvedContacts: 20 },
-          { rank: 7, userId: '7', name: 'Grace Taylor', credits: 18, approvedContacts: 18 },
-          { rank: 8, userId: '8', name: 'Henry Anderson', credits: 15, approvedContacts: 15 },
-          { rank: 9, userId: '9', name: 'Ivy Thompson', credits: 12, approvedContacts: 12 },
-          { rank: 10, userId: '10', name: 'Jack White', credits: 10, approvedContacts: 10 },
-        ]);
-        setLoading(false);
-      }, 800);
-    } catch (error) {
-      console.error('Error fetching leaderboard:', error);
-      setLoading(false);
-    }
-  };
+  const { leaderboard, loading, error } = useLeaderboard();
 
   const getRankBadge = (rank: number) => {
     switch (rank) {
@@ -74,24 +43,7 @@ export default function Leaderboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">
-                T&P Ambassador Tool
-              </h1>
-            </div>
-            <nav className="flex items-center space-x-4">
-              <a href="/dashboard" className="text-gray-700 hover:text-gray-900">Dashboard</a>
-              <a href="/leaderboard" className="text-blue-600 font-medium">Leaderboard</a>
-              <a href="/stats" className="text-gray-700 hover:text-gray-900">Stats</a>
-              <a href="/settings" className="text-gray-700 hover:text-gray-900">Settings</a>
-            </nav>
-          </div>
-        </div>
-      </header>
+      <Navigation title="Leaderboard" showBackButton={true} backUrl="/dashboard" />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -236,6 +188,8 @@ export default function Leaderboard() {
 
         </div>
       </main>
+      
+      <QuickNav />
     </div>
   );
 }

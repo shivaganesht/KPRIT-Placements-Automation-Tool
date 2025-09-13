@@ -1,6 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Navigation from '../../components/ui/Navigation';
+import { useAuthState } from 'react-firebase-hooks/auth';
+import { auth, isAdminUser } from '../../lib/auth';
+import { useRouter } from 'next/navigation';
 
 interface Contact {
   id: string;
@@ -20,18 +24,67 @@ interface Contact {
 }
 
 export default function AdminPanel() {
+  const [user, loading, error] = useAuthState(auth);
+  const router = useRouter();
   const [pendingContacts, setPendingContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [contactsLoading, setContactsLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
 
+  // Check authentication and admin access
   useEffect(() => {
-    fetchPendingContacts();
-  }, []);
+    if (!loading) {
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+      
+      if (!isAdminUser(user.email || '')) {
+        router.push('/dashboard');
+        return;
+      }
+    }
+  }, [user, loading, router]);
+
+  useEffect(() => {
+    if (user && isAdminUser(user.email || '')) {
+      fetchPendingContacts();
+    }
+  }, [user]);
+
+  // Show loading screen while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="text-center py-12">
+            <p className="text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show unauthorized message if not admin
+  if (!user || !isAdminUser(user.email || '')) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="max-w-7xl mx-auto p-6">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+            <p className="text-gray-600 mb-4">You don't have permission to access the admin panel.</p>
+            <p className="text-sm text-gray-500">Only authorized administrators can view this page.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const fetchPendingContacts = async () => {
     try {
-      setLoading(true);
+      setContactsLoading(true);
       // Placeholder for API call
       console.log('Fetching pending contacts...');
       
@@ -82,11 +135,11 @@ export default function AdminPanel() {
             updated_at: '2025-09-13T08:45:00Z'
           }
         ]);
-        setLoading(false);
+        setContactsLoading(false);
       }, 800);
     } catch (error) {
       console.error('Error fetching pending contacts:', error);
-      setLoading(false);
+      setContactsLoading(false);
     }
   };
 
@@ -146,6 +199,7 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Navigation />
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -207,7 +261,7 @@ export default function AdminPanel() {
                   </h3>
                 </div>
                 
-                {loading ? (
+                {contactsLoading ? (
                   <div className="p-8 text-center">
                     <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                     <p className="mt-2 text-gray-600">Loading contacts...</p>
