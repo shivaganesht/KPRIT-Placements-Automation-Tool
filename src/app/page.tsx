@@ -1,52 +1,172 @@
-'use client';
+﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { auth } from '../lib/auth';
+import { useAuthState } from 'react-firebase-hooks/auth';
+
+interface HRContact {
+  id: string;
+  name: string;
+  position: string;
+  company: string;
+  email: string;
+  phone?: string;
+  linkedin?: string;
+  notes?: string;
+  relevanceScore?: number;
+}
+
+interface UserStats {
+  totalSubmissions: number;
+  approvedContacts: number;
+  pendingReview: number;
+  rank: number;
+  credits: number;
+}
 
 export default function Home() {
+  const [user, loading, error] = useAuthState(auth);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchType, setSearchType] = useState<'hr' | 'company'>('hr');
-  const [results, setResults] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<HRContact[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
-    
-    setLoading(true);
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+
+  // Fetch user stats on component mount
+  useEffect(() => {
+    if (user) {
+      fetchUserStats();
+    }
+  }, [user]);
+
+  const fetchUserStats = async () => {
+    if (!user) return;
+
     try {
-      // Placeholder for actual API call
-      console.log('Searching for:', searchQuery, 'Type:', searchType);
-      // Simulate API response
-      setTimeout(() => {
-        setResults([
-          {
-            id: '1',
-            name: 'John Doe',
-            position: 'HR Manager',
-            company: 'Tech Corp',
-            email: 'john.doe@techcorp.com',
-            relevanceScore: 8
-          },
-          {
-            id: '2',
-            name: 'Jane Smith',
-            position: 'Talent Acquisition Specialist',
-            company: 'Innovation Inc',
-            email: 'jane.smith@innovation.com',
-            relevanceScore: 9
-          }
-        ]);
-        setLoading(false);
-      }, 1000);
+      const token = await user.getIdToken();
+      const response = await fetch('http://localhost:3001/api/users/stats', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const stats = await response.json();
+        setUserStats(stats);
+      }
     } catch (error) {
-      console.error('Search error:', error);
-      setLoading(false);
+      console.error('Error fetching user stats:', error);
     }
   };
 
-  const addToList = (contact: any) => {
-    console.log('Adding contact to list:', contact);
-    // Placeholder for API call to submit contact for approval
+  const handleSearch = async () => {
+    if (!searchQuery.trim() || !user) return;
+
+    setSearching(true);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('http://localhost:3001/api/hr/search', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          query: searchQuery,
+          type: searchType
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setResults(data.results || []);
+      } else {
+        console.error('Search failed:', response.statusText);
+        setResults([]);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
   };
+
+  const handleSubmitContact = async (contact: HRContact) => {
+    if (!user || submitting) return;
+
+    setSubmitting(contact.id);
+    try {
+      const token = await user.getIdToken();
+      const response = await fetch('http://localhost:3001/api/hr/submit', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: contact.name,
+          position: contact.position,
+          company: contact.company,
+          email: contact.email,
+          phone: contact.phone,
+          linkedin: contact.linkedin,
+          notes: contact.notes
+        })
+      });
+
+      if (response.ok) {
+        alert('Contact submitted successfully for admin review!');
+        // Refresh user stats
+        fetchUserStats();
+        // Remove from search results
+        setResults(prev => prev.filter(c => c.id !== contact.id));
+      } else {
+        const error = await response.text();
+        alert(`Failed to submit contact: ${error}`);
+      }
+    } catch (error) {
+      console.error('Submit error:', error);
+      alert('Failed to submit contact. Please try again.');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await auth.signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to login
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -59,12 +179,27 @@ export default function Home() {
                 T&P Ambassador Tool
               </h1>
             </div>
-            <nav className="flex items-center space-x-4">
-              <a href="/dashboard" className="text-gray-700 hover:text-gray-900">Dashboard</a>
-              <a href="/leaderboard" className="text-gray-700 hover:text-gray-900">Leaderboard</a>
-              <a href="/stats" className="text-gray-700 hover:text-gray-900">Stats</a>
-              <a href="/settings" className="text-gray-700 hover:text-gray-900">Settings</a>
-            </nav>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-600">
+                Welcome, {user.displayName || user.email}
+              </span>
+              <nav className="flex items-center space-x-4">
+                <a href="/dashboard" className="text-gray-700 hover:text-gray-900">Dashboard</a>
+                <a href="/leaderboard" className="text-gray-700 hover:text-gray-900">Leaderboard</a>
+                <a href="/ai-tools" className="text-gray-700 hover:text-gray-900">AI Tools</a>
+                <a href="/stats" className="text-gray-700 hover:text-gray-900">Stats</a>
+                <a href="/settings" className="text-gray-700 hover:text-gray-900">Settings</a>
+                {user.email?.endsWith('@kpritech.ac.in') && (
+                  <a href="/admin" className="text-blue-700 hover:text-blue-900 font-medium">Admin</a>
+                )}
+                <button
+                  onClick={handleLogout}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Logout
+                </button>
+              </nav>
+            </div>
           </div>
         </div>
       </header>
@@ -72,13 +207,19 @@ export default function Home() {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0">
-          
+
           {/* Welcome Section */}
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-gray-900">Welcome, Ambassador!</h2>
             <p className="mt-2 text-gray-600">
               Find HR contacts and help bring companies to KPRIT campus
             </p>
+            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-md p-4">
+              <p className="text-blue-800 text-sm">
+                 <strong>How it works:</strong> Search for HR contacts, submit them for review, and earn credits. 
+                Approved contacts help bring more companies to our campus!
+              </p>
+            </div>
           </div>
 
           {/* Search Section */}
@@ -86,7 +227,7 @@ export default function Home() {
             <h3 className="text-lg font-medium text-gray-900 mb-4">
               Search for HR Contacts
             </h3>
-            
+
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <input
@@ -98,7 +239,7 @@ export default function Home() {
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
-              
+
               <div className="flex gap-2">
                 <select
                   value={searchType}
@@ -108,13 +249,13 @@ export default function Home() {
                   <option value="hr">HR Name</option>
                   <option value="company">Company</option>
                 </select>
-                
+
                 <button
                   onClick={handleSearch}
-                  disabled={loading || !searchQuery.trim()}
+                  disabled={searching || !searchQuery.trim()}
                   className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Searching...' : 'Search'}
+                  {searching ? 'Searching...' : 'Search'}
                 </button>
               </div>
             </div>
@@ -122,13 +263,13 @@ export default function Home() {
 
           {/* Results Section */}
           {results.length > 0 && (
-            <div className="bg-white rounded-lg shadow">
+            <div className="bg-white rounded-lg shadow mb-8">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-medium text-gray-900">
                   Search Results ({results.length})
                 </h3>
               </div>
-              
+
               <div className="divide-y divide-gray-200">
                 {results.map((contact) => (
                   <div key={contact.id} className="p-6 hover:bg-gray-50">
@@ -141,20 +282,33 @@ export default function Home() {
                           {contact.position} at {contact.company}
                         </p>
                         <p className="text-sm text-gray-500 mt-1">
-                          {contact.email}
+                           {contact.email}
                         </p>
-                        <div className="mt-2">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Relevance Score: {contact.relevanceScore}/10
-                          </span>
-                        </div>
+                        {contact.phone && (
+                          <p className="text-sm text-gray-500">
+                             {contact.phone}
+                          </p>
+                        )}
+                        {contact.linkedin && (
+                          <p className="text-sm text-gray-500">
+                             {contact.linkedin}
+                          </p>
+                        )}
+                        {contact.relevanceScore && (
+                          <div className="mt-2">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              Relevance Score: {contact.relevanceScore}/10
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      
+
                       <button
-                        onClick={() => addToList(contact)}
-                        className="ml-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                        onClick={() => handleSubmitContact(contact)}
+                        disabled={submitting === contact.id}
+                        className="ml-4 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Add to List
+                        {submitting === contact.id ? 'Submitting...' : 'Submit for Review'}
                       </button>
                     </div>
                   </div>
@@ -164,113 +318,69 @@ export default function Home() {
           )}
 
           {/* Stats Overview */}
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900">Your Credits</h3>
-              <p className="text-3xl font-bold text-blue-600 mt-2">24</p>
-              <p className="text-sm text-gray-500 mt-1">Total approved contacts</p>
+          {userStats && (
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-medium text-gray-900">Your Credits</h3>
+                <p className="text-3xl font-bold text-blue-600 mt-2">{userStats.credits}</p>
+                <p className="text-sm text-gray-500 mt-1">Total approved contacts</p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-medium text-gray-900">Pending Review</h3>
+                <p className="text-3xl font-bold text-yellow-600 mt-2">{userStats.pendingReview}</p>
+                <p className="text-sm text-gray-500 mt-1">Contacts waiting for approval</p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-medium text-gray-900">Your Rank</h3>
+                <p className="text-3xl font-bold text-green-600 mt-2">#{userStats.rank}</p>
+                <p className="text-sm text-gray-500 mt-1">On the leaderboard</p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow p-6">
+                <h3 className="text-lg font-medium text-gray-900">Total Submissions</h3>
+                <p className="text-3xl font-bold text-purple-600 mt-2">{userStats.totalSubmissions}</p>
+                <p className="text-sm text-gray-500 mt-1">All time submissions</p>
+              </div>
             </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900">Pending Review</h3>
-              <p className="text-3xl font-bold text-yellow-600 mt-2">3</p>
-              <p className="text-sm text-gray-500 mt-1">Contacts waiting for approval</p>
-            </div>
-            
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900">Your Rank</h3>
-              <p className="text-3xl font-bold text-green-600 mt-2">#5</p>
-              <p className="text-sm text-gray-500 mt-1">On the leaderboard</p>
+          )}
+
+          {/* Quick Actions */}
+          <div className="mt-8 bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <a
+                href="/ai-tools"
+                className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="text-2xl mb-2"></div>
+                <h4 className="font-medium text-gray-900">AI Tools</h4>
+                <p className="text-sm text-gray-600">Generate emails, LinkedIn messages, and more</p>
+              </a>
+
+              <a
+                href="/leaderboard"
+                className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="text-2xl mb-2"></div>
+                <h4 className="font-medium text-gray-900">Leaderboard</h4>
+                <p className="text-sm text-gray-600">See top performing ambassadors</p>
+              </a>
+
+              <a
+                href="/stats"
+                className="block p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                <div className="text-2xl mb-2"></div>
+                <h4 className="font-medium text-gray-900">Analytics</h4>
+                <p className="text-sm text-gray-600">View detailed statistics and trends</p>
+              </a>
             </div>
           </div>
 
         </div>
       </main>
-    </div>
-  );
-}
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
 }
