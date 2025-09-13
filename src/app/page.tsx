@@ -71,7 +71,7 @@ export default function Home() {
     setSubmitting(contact.id);
     try {
       const token = await user.getIdToken();
-      const response = await fetch('http://localhost:3001/api/hr/submit', {
+      const response = await fetch('http://localhost:3001/api/contacts/submit', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
