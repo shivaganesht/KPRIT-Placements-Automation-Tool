@@ -6,6 +6,12 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 const fs = require('fs');
 
+// Load environment variables from parent directory
+require('dotenv').config({ path: path.join(__dirname, '..', '.env.local') });
+
+// Import services
+const AIService = require('./services/AIService');
+
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3001;

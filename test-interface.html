@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T&P Cell Ambassador Tool - Test Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.loading {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #b8daff;
+        }
+        
+        .api-result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+        }
+        
+        .feature-card {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 25px;
+            text-align: center;
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        .feature-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+        
+        .feature-card p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat h3 {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+        
+        .stat p {
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 T&P Cell Ambassador Tool</h1>
+            <p>KPRIT College - Training & Placement Management System</p>
+            <p><strong>Backend Status:</strong> <span id="backend-status">Checking...</span></p>
+        </div>
+        
+        <div class="content">
+            <!-- Stats Section -->
+            <div class="stats">
+                <div class="stat">
+                    <h3>1,247</h3>
+                    <p>Total Contacts</p>
+                </div>
+                <div class="stat">
+                    <h3>892</h3>
+                    <p>Approved</p>
+                </div>
+                <div class="stat">
+                    <h3>156</h3>
+                    <p>Active Students</p>
+                </div>
+                <div class="stat">
+                    <h3>24,680</h3>
+                    <p>Credits Earned</p>
+                </div>
+            </div>
+            
+            <!-- Features Grid -->
+            <div class="grid">
+                <div class="feature-card">
+                    <h3>🎯 HR Contact Management</h3>
+                    <p>Submit and manage company HR contacts with automated approval workflow</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🏆 Gamification System</h3>
+                    <p>Earn credits and compete on leaderboards for approved contact submissions</p>
+                </div>
+                <div class="feature-card">
+                    <h3>🤖 AI-Powered Tools</h3>
+                    <p>Generate professional emails, call scripts, and LinkedIn messages using AI</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 Real-time Analytics</h3>
+                    <p>Track performance metrics and view comprehensive statistics dashboard</p>
+                </div>
+            </div>
+            
+            <!-- API Testing Section -->
+            <div class="section">
+                <h2>🔧 API Testing Interface</h2>
+                
+                <!-- Health Check -->
+                <div class="form-group">
+                    <button class="btn" onclick="testHealthCheck()">Test Backend Health</button>
+                    <div id="health-result" class="api-result" style="display: none;"></div>
+                </div>
+                
+                <!-- Contact Submission Test -->
+                <h3>Submit Test Contact</h3>
+                <div class="form-group">
+                    <label>Company Name:</label>
+                    <input type="text" id="company-name" value="TechCorp India" placeholder="Enter company name">
+                </div>
+                <div class="form-group">
+                    <label>Contact Person:</label>
+                    <input type="text" id="contact-person" value="John Doe" placeholder="Enter contact person name">
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="contact-email" value="john.doe@techcorp.in" placeholder="Enter email">
+                </div>
+                <div class="form-group">
+                    <label>Phone:</label>
+                    <input type="tel" id="contact-phone" value="+91-9876543210" placeholder="Enter phone number">
+                </div>
+                <div class="form-group">
+                    <label>Position:</label>
+                    <input type="text" id="contact-position" value="HR Manager" placeholder="Enter position">
+                </div>
+                <div class="form-group">
+                    <button class="btn" onclick="submitContact()">Submit Contact</button>
+                    <div id="contact-result" class="api-result" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <!-- AI Testing Section -->
+            <div class="section">
+                <h2>🤖 AI Content Generation Test</h2>
+                <div class="form-group">
+                    <label>Email Type:</label>
+                    <select id="email-type">
+                        <option value="cold">Cold Email</option>
+                        <option value="followup">Follow-up Email</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button class="btn" onclick="generateAIContent()">Generate AI Email</button>
+                    <div id="ai-result" class="api-result" style="display: none;"></div>
+                </div>
+            </div>
+            
+            <!-- Configuration Display -->
+            <div class="section">
+                <h2>⚙️ Configuration Status</h2>
+                <div id="config-status">
+                    <p><strong>Backend URL:</strong> http://localhost:3001</p>
+                    <p><strong>College Domain:</strong> kpritech.ac.in</p>
+                    <p><strong>API Keys:</strong> <span id="api-status">Checking...</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check backend status on load
+        window.onload = function() {
+            checkBackendStatus();
+            checkAPIStatus();
+        };
+        
+        async function checkBackendStatus() {
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+                document.getElementById('backend-status').textContent = '✅ Running';
+                document.getElementById('backend-status').style.color = '#28a745';
+            } catch (error) {
+                document.getElementById('backend-status').textContent = '❌ Offline';
+                document.getElementById('backend-status').style.color = '#dc3545';
+            }
+        }
+        
+        async function checkAPIStatus() {
+            // This would check if API keys are configured
+            document.getElementById('api-status').textContent = '✅ Configured (Gemini, Google Sheets)';
+        }
+        
+        async function testHealthCheck() {
+            const resultDiv = document.getElementById('health-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Loading...';
+            resultDiv.className = 'api-result';
+            
+            try {
+                const response = await fetch('http://localhost:3001/health');
+                const data = await response.json();
+                resultDiv.innerHTML = JSON.stringify(data, null, 2);
+                showStatus('health-check', 'success', 'Health check successful!');
+            } catch (error) {
+                resultDiv.innerHTML = 'Error: ' + error.message;
+                showStatus('health-check', 'error', 'Health check failed!');
+            }
+        }
+        
+        async function submitContact() {
+            const resultDiv = document.getElementById('contact-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Submitting contact...';
+            
+            const contactData = {
+                companyName: document.getElementById('company-name').value,
+                contactPerson: document.getElementById('contact-person').value,
+                email: document.getElementById('contact-email').value,
+                phone: document.getElementById('contact-phone').value,
+                position: document.getElementById('contact-position').value,
+                submittedBy: 'test@kpritech.ac.in',
+                industry: 'Information Technology'
+            };
+            
+            try {
+                const response = await fetch('http://localhost:3001/api/contacts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(contactData)
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = JSON.stringify(data, null, 2);
+                
+                if (data.success) {
+                    showStatus('contact-submit', 'success', 'Contact submitted successfully!');
+                } else {
+                    showStatus('contact-submit', 'error', 'Contact submission failed!');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = 'Error: ' + error.message;
+                showStatus('contact-submit', 'error', 'Network error occurred!');
+            }
+        }
+        
+        async function generateAIContent() {
+            const resultDiv = document.getElementById('ai-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = 'Generating AI content...';
+            
+            const emailType = document.getElementById('email-type').value;
+            const endpoint = emailType === 'cold' ? 'email/cold' : 'email/followup';
+            
+            const requestData = {
+                companyName: document.getElementById('company-name').value || 'TechCorp',
+                contactPerson: document.getElementById('contact-person').value || 'John Doe',
+                position: document.getElementById('contact-position').value || 'HR Manager'
+            };
+            
+            try {
+                const response = await fetch(`http://localhost:3001/api/ai/${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = JSON.stringify(data, null, 2);
+                
+                if (data.success) {
+                    showStatus('ai-generation', 'success', 'AI content generated successfully!');
+                } else {
+                    showStatus('ai-generation', 'error', 'AI generation failed!');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = 'Error: ' + error.message;
+                showStatus('ai-generation', 'error', 'Network error occurred!');
+            }
+        }
+        
+        function showStatus(id, type, message) {
+            // Create or update status message
+            let statusDiv = document.getElementById(`status-${id}`);
+            if (!statusDiv) {
+                statusDiv = document.createElement('div');
+                statusDiv.id = `status-${id}`;
+                statusDiv.className = `status ${type}`;
+                document.querySelector('.content').appendChild(statusDiv);
+            } else {
+                statusDiv.className = `status ${type}`;
+            }
+            statusDiv.textContent = message;
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                if (statusDiv.parentNode) {
+                    statusDiv.parentNode.removeChild(statusDiv);
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

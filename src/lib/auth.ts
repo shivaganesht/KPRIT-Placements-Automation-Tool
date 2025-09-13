@@ -23,7 +23,7 @@ class MockFirebaseAuth {
   // Mock authentication methods
   async signInWithEmailAndPassword(email: string, password: string): Promise<AuthResult> {
     // Validate college email domain
-    const allowedDomain = 'kprit.edu.in';
+    const allowedDomain = 'kpritech.ac.in';
     if (!email.endsWith(`@${allowedDomain}`)) {
       return {
         user: null,
@@ -47,7 +47,7 @@ class MockFirebaseAuth {
 
   async createUserWithEmailAndPassword(email: string, password: string): Promise<AuthResult> {
     // Validate college email domain
-    const allowedDomain = 'kprit.edu.in';
+    const allowedDomain = 'kpritech.ac.in';
     if (!email.endsWith(`@${allowedDomain}`)) {
       return {
         user: null,

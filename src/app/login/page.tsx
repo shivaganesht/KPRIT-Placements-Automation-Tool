@@ -20,7 +20,7 @@ export default function LoginPage() {
 
     try {
       // Mock authentication logic
-      if (!email.endsWith('@kprit.edu.in')) {
+      if (!email.endsWith('@kpritech.ac.in')) {
         throw new Error('Only KPRIT college email addresses are allowed');
       }
 
@@ -70,7 +70,7 @@ export default function LoginPage() {
             <Input
               id="email"
               type="email"
-              placeholder="your.name@kprit.edu.in"
+              placeholder="your.name@kpritech.ac.in"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -126,8 +126,8 @@ export default function LoginPage() {
         <div className="mt-8 pt-6 border-t border-gray-200">
           <div className="text-xs text-gray-500 space-y-1">
             <p><strong>Demo Accounts:</strong></p>
-            <p>Admin: admin@kprit.edu.in (password: admin123)</p>
-            <p>Student: student@kprit.edu.in (password: student123)</p>
+            <p>Admin: admin@kpritech.ac.in (password: admin123)</p>
+            <p>Student: student@kpritech.ac.in (password: student123)</p>
           </div>
         </div>
       </div>
