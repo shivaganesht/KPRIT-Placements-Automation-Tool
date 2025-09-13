@@ -63,7 +63,13 @@ export function useTheme() {
         setTheme: () => {}
       };
     }
-    throw new Error('useTheme must be used within a ThemeProvider');
+    // Client-side fallback for hydration issues
+    console.warn('useTheme called outside ThemeProvider, providing fallback');
+    return {
+      theme: 'light' as Theme,
+      toggleTheme: () => {},
+      setTheme: () => {}
+    };
   }
   return context;
 }
@@ -71,18 +77,20 @@ export function useTheme() {
 // Theme toggle button component
 export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
-  const { theme, toggleTheme } = useTheme(); // Always call hooks first!
   
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Don't render anything on the server to avoid hydration mismatch
+  // Don't render anything on the server or during early hydration
   if (!mounted) {
     return (
       <div className="p-2 w-9 h-9 rounded-md bg-gray-100 dark:bg-gray-800 animate-pulse" />
     );
   }
+
+  // Now safely use the theme hook after mounting
+  const { theme, toggleTheme } = useTheme();
 
   return (
     <button

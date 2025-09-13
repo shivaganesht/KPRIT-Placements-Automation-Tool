@@ -1,1 +1,66 @@
-[]
+[
+  {
+    "id": 1757784595335,
+    "userId": "mock_user_123",
+    "userEmail": "mock@kpritech.ac.in",
+    "userName": "Mock User",
+    "hrName": "John Smith",
+    "hrPosition": "HR Manager",
+    "hrCompany": "Microsoft",
+    "hrEmail": "john.smith@microsoft.com",
+    "hrPhone": "+1-555-0123",
+    "hrLinkedin": "https://linkedin.com/in/johnsmith",
+    "message": "Interested in partnership opportunities",
+    "approach": "email",
+    "submittedAt": "2025-09-13T17:29:55.335Z",
+    "status": "pending"
+  },
+  {
+    "id": 1757784635762,
+    "userId": "mock_user_123",
+    "userEmail": "mock@kpritech.ac.in",
+    "userName": "Mock User",
+    "hrName": "John Smith",
+    "hrPosition": "HR Manager",
+    "hrCompany": "Microsoft",
+    "hrEmail": "john.smith@microsoft.com",
+    "hrPhone": "+1-555-0123",
+    "hrLinkedin": "https://linkedin.com/in/johnsmith",
+    "message": "Interested in partnership opportunities",
+    "approach": "email",
+    "submittedAt": "2025-09-13T17:30:35.762Z",
+    "status": "pending"
+  },
+  {
+    "id": 1757784697115,
+    "userId": "mock_user_123",
+    "userEmail": "mock@kpritech.ac.in",
+    "userName": "Mock User",
+    "hrName": "John Smith",
+    "hrPosition": "HR Manager",
+    "hrCompany": "Microsoft",
+    "hrEmail": "john.smith@microsoft.com",
+    "hrPhone": "+1-555-0123",
+    "hrLinkedin": "https://linkedin.com/in/johnsmith",
+    "message": "Interested in partnership opportunities",
+    "approach": "email",
+    "submittedAt": "2025-09-13T17:31:37.115Z",
+    "status": "pending"
+  },
+  {
+    "id": 1757784745564,
+    "userId": "mock_user_123",
+    "userEmail": "mock@kpritech.ac.in",
+    "userName": "Mock User",
+    "hrName": "Sujata Srivastava",
+    "hrPosition": "Marketing and HR Manager",
+    "hrCompany": "Being Zero Pvt Ltd",
+    "hrEmail": "email_not_unlocked@domain.com",
+    "hrPhone": null,
+    "hrLinkedin": "http://www.linkedin.com/in/sujata-sinha-srivastava-9a003524",
+    "message": "Interested in connecting with Sujata Srivastava from Being Zero Pvt Ltd for placement opportunities.",
+    "approach": "email",
+    "submittedAt": "2025-09-13T17:32:25.564Z",
+    "status": "pending"
+  }
+]

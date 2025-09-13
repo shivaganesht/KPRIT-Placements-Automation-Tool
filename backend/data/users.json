@@ -1,1 +1,11 @@
-{}
+{
+  "mock_user_123": {
+    "uid": "mock_user_123",
+    "email": "mock@kpritech.ac.in",
+    "name": "Mock User",
+    "totalContacts": 4,
+    "approvedContacts": 0,
+    "totalCreditsEarned": 0,
+    "registeredAt": "2025-09-13T17:29:55.989Z"
+  }
+}

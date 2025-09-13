@@ -14,6 +14,7 @@ const admin = require('firebase-admin');
 const fs = require('fs').promises;
 const path = require('path');
 const ContactSearchService = require('./services/ContactSearchService');
+const GoogleSheetsService = require('./services/GoogleSheetsService');
 
 // Initialize Express app
 const app = express();
@@ -21,6 +22,7 @@ const PORT = process.env.PORT || 3001;
 
 // Initialize services
 const contactSearchService = new ContactSearchService();
+const googleSheetsService = new GoogleSheetsService();
 
 // Initialize Firebase Admin (with fallback for development)
 let firebaseApp;
@@ -345,11 +347,11 @@ app.get('/api/contacts/:id/details', authenticateUser, async (req, res) => {
 // Submit contact endpoint
 app.post('/api/contacts/submit', authenticateUser, async (req, res) => {
   try {
-    const { hrId, message, approach } = req.body;
-    const { uid, email, name } = req.user;
+    const { name, position, company, email, phone, linkedin, notes, approach } = req.body;
+    const { uid, email: userEmail, name: userName } = req.user;
     
-    if (!hrId || !message) {
-      return res.status(400).json({ error: 'HR ID and message are required' });
+    if (!name || !company) {
+      return res.status(400).json({ error: 'HR name and company are required' });
     }
 
     const contacts = await readJsonFile(CONTACTS_DB) || [];
@@ -357,10 +359,15 @@ app.post('/api/contacts/submit', authenticateUser, async (req, res) => {
     const contactEntry = {
       id: Date.now(),
       userId: uid,
-      userEmail: email,
-      userName: name,
-      hrId,
-      message,
+      userEmail: userEmail,
+      userName: userName,
+      hrName: name,
+      hrPosition: position,
+      hrCompany: company,
+      hrEmail: email,
+      hrPhone: phone,
+      hrLinkedin: linkedin,
+      message: notes || `Interested in connecting with ${name} from ${company} for placement opportunities.`,
       approach: approach || 'email',
       submittedAt: new Date().toISOString(),
       status: 'pending'
@@ -369,14 +376,32 @@ app.post('/api/contacts/submit', authenticateUser, async (req, res) => {
     contacts.push(contactEntry);
     await writeJsonFile(CONTACTS_DB, contacts);
 
+    // Add to Google Sheets in real-time
+    try {
+      console.log('📊 Adding contact submission to Google Sheets...');
+      const sheetsResult = await googleSheetsService.addContactSubmission(contactEntry);
+      if (sheetsResult.success) {
+        console.log('✅ Successfully added to Google Sheets');
+        contactEntry.addedToSheets = true;
+      } else {
+        console.log('⚠️ Failed to add to Google Sheets:', sheetsResult.error);
+        contactEntry.addedToSheets = false;
+        contactEntry.sheetsError = sheetsResult.error;
+      }
+    } catch (error) {
+      console.error('❌ Google Sheets integration error:', error);
+      contactEntry.addedToSheets = false;
+      contactEntry.sheetsError = error.message;
+    }
+
     // Update user stats
     const users = await readJsonFile(USERS_DB) || {};
     if (!users[uid]) {
       // Create user if doesn't exist
       users[uid] = {
         uid,
-        email,
-        name,
+        email: userEmail,
+        name: userName,
         totalContacts: 0,
         approvedContacts: 0,
         totalCreditsEarned: 0,
@@ -389,7 +414,8 @@ app.post('/api/contacts/submit', authenticateUser, async (req, res) => {
     res.json({
       success: true,
       contact: contactEntry,
-      message: 'Contact submitted successfully'
+      message: 'Contact submitted successfully',
+      googleSheetsStatus: contactEntry.addedToSheets ? 'Added to Google Sheets' : 'Failed to add to Google Sheets'
     });
 
   } catch (error) {
@@ -745,11 +771,25 @@ async function startServer() {
     await ensureDataDirectory();
     console.log('✅ Data directory initialized');
     
+    // Initialize Google Sheets
+    try {
+      console.log('📊 Initializing Google Sheets...');
+      const sheetsInit = await googleSheetsService.initializeSheet();
+      if (sheetsInit.success) {
+        console.log('✅ Google Sheets initialized successfully');
+      } else {
+        console.log('⚠️ Google Sheets initialization failed:', sheetsInit.error);
+      }
+    } catch (error) {
+      console.log('⚠️ Google Sheets initialization error:', error.message);
+    }
+    
     app.listen(PORT, () => {
       console.log(`🚀 T&P Ambassador Tool API running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🔥 Firebase Admin: ${firebaseApp ? 'Enabled' : 'Mock Mode'}`);
       console.log(`🌐 CORS Origin: ${process.env.NODE_ENV === 'production' ? 'Production domains' : 'http://localhost:3000'}`);
+      console.log(`📊 Google Sheets: ${process.env.GOOGLE_SHEETS_API_KEY ? 'Configured' : 'Not configured'}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
